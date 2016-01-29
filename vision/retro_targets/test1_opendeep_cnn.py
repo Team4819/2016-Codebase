@@ -8,18 +8,17 @@ from opendeep.optimization.loss import Neg_LL
 from opendeep.optimization import AdaDelta
 from opendeep.monitor import Monitor
 from opendeep.data.stream import ModifyStream
-from opendeep.data import ImageDataset, MNIST
+from opendeep.data import ImageDataset
+import filter_test
 
-from . import filter_test
-
-config_root_logger()
+#config_root_logger()
 
 lenet = Prototype()
 
 images = T.tensor4('xs')
-images_shape = (None, 1, 640, 480)
+images_shape = (None, 1, 480, 640)
 
-lenet.add(Conv2D(inputs=(images_shape, images), n_filters=20, filter_size=(5, 5), border_mode="full", activation="relu"))
+lenet.add(Conv2D(inputs=(images_shape, images), n_filters=6, filter_size=(5, 5), border_mode="full", activation="relu"))
 lenet.add(Pool2D, size=(2, 2))
 lenet.add(Noise, noise="dropout", noise_level=0.5)
 
@@ -33,29 +32,33 @@ dense_in_shape = lenet.models[-1].output_size[:1] + (np.prod(lenet.models[-1].ou
 lenet.add(Dense(inputs=(dense_in_shape, dense_input), outputs=500, activation="relu"))
 lenet.add(Noise, noise="dropout", noise_level=0.5)
 
-lenet.add(Softmax, outputs=10, out_as_probs=False)
+lenet.add(Dense, outputs=2)
 
 labels = T.lvector('ys')
 
-loss = Neg_LL(inputs=lenet.models[-1].p_y_given_x, targets=labels, one_hot=False)
+loss = Neg_LL(inputs=lenet.models[-1].get_outputs(), targets=labels, one_hot=False)
 
-accuracy = Monitor(name="Accuracy", expression=1-(T.mean(T.neq(lenet.models[-1].y_pred, labels))),
-                   valid=True, test=True)
+#accuracy = Monitor(name="Accuracy", expression=1-(T.mean(T.neq(lenet.models[-1].y_pred, labels))),
+#                   valid=True, test=True)
 
 
 def greyscale_image(img):
-    arr = np.average(img, 0)
-    return arr
+    img = img.transpose(2, 1, 0)
+    arr = np.average(img, 0).astype(int)
+    return arr[None, :, :]
 
 
 def target_preprocess(img):
-    return filter_test.find_goal(img)
+    x, y, _ = filter_test.find_goals(img)[0]
+    return x/img.shape[0], y/img.shape[1]
 
-data = ImageDataset("training_data/cd_retro_pics", targets_preprocess=target_preprocess, inputs_preprocess=greyscale_image)
+data = ImageDataset("training_data/filtered_pics/", test_filter="**1.jpg", valid_filter="**2.jpg",
+                    targets_preprocess=target_preprocess,
+                    inputs_preprocess=greyscale_image)
 
 print("Building optimizer")
 optimizer = AdaDelta(model=lenet, loss=loss, dataset=data, epochs=10)
-optimizer.train(monitor_channels=accuracy)
+optimizer.train()
 
 print("Predicting...")
 predictions = lenet.run(data.test_inputs)
