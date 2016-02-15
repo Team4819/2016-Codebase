@@ -1,79 +1,37 @@
 from int_dynamics import dynamics
 import math
-import numpy as np
-import os
 
 
-class MyRobotDynamics:
+class MyRobotDynamics(dynamics.DynamicsEngine):
 
-    def __init__(self):
-        self.drivetrain = dynamics.KOPAssembly(125)#, imu_class=dynamics.sensors.NavX, build_ekf=True)
-        self.get_state()
-        self.get_sensors()
-        self.get_controls()
+    def build_loads(self):
+        # Init drivetrain components (the assembly does this for us)
 
-    def get_sensors(self, hal_data=None, add_noise=False):
-        self.sensors = {
-            "gyro": self.drivetrain.imu.angle.get_value(),
-            #"accel": np.array([self.drivetrain.imu.accel_x.get_value(),
-            #                   self.drivetrain.imu.accel_y.get_value()]),
-            "left_encoder": self.drivetrain.left_gearbox.position.get_value(),
-            "right_encoder": self.drivetrain.right_gearbox.position.get_value()
-        }
-        if add_noise:
-            self.sensors["gyro"] += np.random.normal(0, .05)
-        if hal_data is not None:
-            hal_data['robot']['navxmxp_i2c_1_angle'] = math.degrees(self.sensors["gyro"])
-            hal_data['robot']['navxmxp_spi_4_angle'] = math.degrees(self.sensors["gyro"])
-            hal_data['encoder'][0]['count'] = math.degrees(self.sensors["left_encoder"])
-            hal_data['encoder'][1]['count'] = math.degrees(self.sensors["right_encoder"])
-        return self.sensors
+        # Two CIM
+        left_front_motor = dynamics.CIMMotor()
+        right_front_motor = dynamics.CIMMotor()
+        left_rear_motor = dynamics.CIMMotor()
+        right_rear_motor = dynamics.CIMMotor()
+        # Two 10:1 gearboxes
+        left_gearbox = dynamics.GearBox([left_front_motor, left_rear_motor], 10, 1)
+        right_gearbox = dynamics.GearBox([right_front_motor, right_rear_motor], 10, 1)
 
-    def update_sensors(self):
-        self.drivetrain.imu.angle.set_value(self.sensors["gyro"])
-        #self.drivetrain.imu.accel_x.set_value(self.sensors["accel"][0])
-        #self.drivetrain.imu.accel_y.set_value(self.sensors["accel"][1])
-        self.drivetrain.left_encoder.position.set_value(self.sensors["left_encoder"])
-        self.drivetrain.right_encoder.position.set_value(self.sensors["right_encoder"])
+        left_wheels = dynamics.KOPWheels(left_gearbox, 3, 6, 60)
+        right_wheels = dynamics.KOPWheels(right_gearbox, 3, 6, 60)
 
-    def get_controls(self):
-        self.controls = {
-            "left_drive_cim": self.drivetrain.left_speed_controller.percent_vbus.get_value(),
-            "right_drive_cim": self.drivetrain.right_speed_controller.percent_vbus.get_value(),
-        }
-        return self.controls
+        self.loads["drivetrain"] = dynamics.TwoDimensionalLoad(120)
+        self.loads["drivetrain"].add_wheel(left_wheels, x_origin=-.5)
+        self.loads["drivetrain"].add_wheel(right_wheels, x_origin=.5, r_origin=math.pi)
 
-    def update_controls(self, hal_data=None, add_noise=False):
-        if hal_data is not None:
-            self.controls = {
-                "left_drive_cim": hal_data['pwm'][0]['value'],
-                "right_drive_cim": hal_data['pwm'][1]['value'],
-            }
-        if add_noise:
-            self.controls["left_drive_cim"] += np.random.normal(0, .1)
-            self.controls["right_drive_cim"] += np.random.normal(0, .1)
-        self.drivetrain.set_values(self.controls["left_drive_cim"],
-                                   self.controls["right_drive_cim"])
+        # Init drivetrain sensors
+        self.sensors['gyro'] = dynamics.AnalogGyro(self.loads['drivetrain'], 0)
+        self.sensors['left_encoder'] = dynamics.CANTalonEncoder(left_gearbox)
+        self.sensors['right_encoder'] = dynamics.CANTalonEncoder(right_gearbox)
 
-    def update_physics(self, dt, do_ekf=False):
-        self.drivetrain.update_physics(dt, do_ekf)
-
-    def get_state(self):
-        self.state = {
-            "drivetrain": self.drivetrain.get_state(),
-        }
-        return self.state
-
-    def set_vector_controls(self, u):
-        self.drivetrain.set_values(u[0], u[1])
-
-    def get_vector_data(self):
-        state_derivatives = self.drivetrain.get_state_derivatives()
-        states = self.drivetrain.get_state()
-        control_derivatives = self.drivetrain.drivetrain_integrator.control_derivative.get_value()
-        return states, state_derivatives, control_derivatives
-
-
-def get_dynamics():
-    return dynamics.utilities.cache_object(MyRobotDynamics, file_path=os.path.abspath(__file__))
-
+        # Set drivetrain controllers
+        self.controllers['left_drive_0'] = dynamics.CANTalonSpeedController(left_front_motor, 0)
+        self.controllers['left_drive_0'].add_encoder(self.sensors['left_encoder'])
+        self.controllers['right_drive_0'] = dynamics.CANTalonSpeedController(right_front_motor, 1)
+        self.controllers['right_drive_0'].add_encoder(self.sensors['right_encoder'])
+        self.controllers['left_drive_1'] = dynamics.CANTalonSpeedController(left_rear_motor, 2)
+        self.controllers['right_drive_1'] = dynamics.CANTalonSpeedController(right_front_motor, 3)

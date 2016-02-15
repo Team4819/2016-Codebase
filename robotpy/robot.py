@@ -11,5 +11,5 @@ class MyRobot(YetiRobot):
     config_dir = abspath(dirname(__file__))
 
 if __name__ == "__main__":
-    wpilib.run(MyRobot, physics_enabled=True)
+    wpilib.run(MyRobot, physics_enabled=False)
 

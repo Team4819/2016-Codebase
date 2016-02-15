@@ -1,6 +1,7 @@
 # This section defines the individual modules and module sets to run on startup.
 enabled:
     - drivetrain
+   # - dynamics_module
 
 # This is a list of relative directories to search for modules
 module_dirs:
@@ -9,4 +10,5 @@ module_dirs:
 # Defines module sets
 module_sets:
     drivetrain:
-      - arcade_drive
+      - advanced_drive
+      - basic_drive
