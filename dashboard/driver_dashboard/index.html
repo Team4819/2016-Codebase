@@ -1,0 +1,23 @@
+<html>
+<head>
+    <title>FRC 4819 Stronghold Driver's Dashboard</title>
+    <script src="jquery.min.js"></script>
+    <script src="script.js"></script>
+    <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+    <div id="header">
+        <h1>FRC 4819 Stronghold Driver's Dashboard</h1>
+        <img src="/2015LogoDisc-small.png" width="80px;">
+        <ul>
+            <!--<li><a onclick="set_window('prematch.html')">Pre-match</a></li>-->
+            <li><a onclick="set_window('auto.html')">Autonomous Mode</a></li>
+            <li><a onclick="set_window('teleop.html')">Teleoperated Mode</a></li>
+        </ul>
+    </div>
+    <div id="content">
+        <iframe src="teleop.html"></iframe>
+    </div>
+</body>
+</html>

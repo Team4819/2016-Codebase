@@ -1,0 +1,42 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+</head>
+<body>
+
+<!-- This starts the NetworkTables websocket, it can be accessed from multiple
+     pages simultaneously -->
+<script src="/networktables/networktables.js"></script>
+
+<!-- Obviously, you will want to copy this file locally in a real
+     dashboard, as the Driver Station won't have internet access -->
+<script src="jquery.min.js"></script>
+<script src="d3.min.js"></script>
+
+<!-- utility functions to attach to a sendable chooser -->
+<script src="/networktables/utils.js"></script>
+
+<div>
+  Robot: <span id="robotstate">Unknown state</span>
+</div>
+
+Autonomous: <select id="autonomous"></select>
+
+<script type="text/javascript">
+"use strict";
+function onRobotConnection(connected) {
+	$('#robotstate').text(connected ? "Connected!" : "Disconnected");
+}
+$(document).ready(function(){
+  // sets a function that will be called when the robot connects/disconnects
+	NetworkTables.addRobotConnectionListener(onRobotConnection, true);
+
+  // attaches the select element to a SendableChooser object
+  attachSelectToSendableChooser("#autonomous", "Autonomous Mode");
+});
+</script>
+
+</body>
+</html>
