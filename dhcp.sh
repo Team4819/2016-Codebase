@@ -1,1 +1,1 @@
-sudo python2 simple-dhcpd.py -a 10.48.19.123 -i enp4s0 -f 10.48.19.2 -t 10.48.19.5
+sudo python2 simple-dhcpd.py -a 10.48.19.5 -i enp0s25 -f 10.48.19.2 -t 10.48.19.4

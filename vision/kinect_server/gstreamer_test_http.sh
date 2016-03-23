@@ -1,1 +1,0 @@
-gst-launch-1.0 -v videotestsrc horizontal-speed=10 ! theoraenc ! oggmux ! queue ! tcpserversink port=8080 sync-method=2

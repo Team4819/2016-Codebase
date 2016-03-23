@@ -13,9 +13,10 @@ module_dirs:
 # Defines module sets
 module_sets:
     autonomous:
-      - cheval_de_frise_auto
-      - portcullis_auto
+      #- cheval_de_frise_auto
+      #- portcullis_auto
       - drive_auto
+      - dead_auto
     drivetrain:
       #- dynamic_drive
       - advanced_drive

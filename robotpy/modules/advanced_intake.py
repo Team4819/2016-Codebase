@@ -6,7 +6,8 @@ import yeti
 class AdvancedIntake(yeti.Module):
 
     DOUBLE_SOLENOID = True
-    MIDPOINT = 0.75
+
+    MIDPOINT = 0.775
     RANGE = 0.4
 
     def module_init(self):
@@ -42,18 +43,18 @@ class AdvancedIntake(yeti.Module):
             velocity = (input - last_input)/0.05
             if abs(last_value) < 1:
                 velocity = 0
-            value_out = error*5 + velocity*0.3
+            value_out = error*5 + velocity*0.5
 
             val_1 = value_out
             if self.DOUBLE_SOLENOID:
                 val_2 = val_1
-                if input > 0.5:
+                if input > 0.6:
                     val_1 = 0
-                    if input > 0.6:
+                    if input > 0.7:
                         val_1 = -val_2
-                elif input < -0.2:
+                elif input < -0.15:
                     val_2 = 0
-                    if input < -0.3:
+                    if input < -0.2:
                         val_2 = -val_1
 
                 self.intake_solenoid_2.set(self.num_to_solenoid(val_2))
@@ -61,7 +62,7 @@ class AdvancedIntake(yeti.Module):
 
             last_input = input
             last_value = value_out
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.01)
 
     @staticmethod
     def num_to_solenoid(value):

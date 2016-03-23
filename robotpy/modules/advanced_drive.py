@@ -96,7 +96,7 @@ class AdvancedDrive(yeti.Module):
                     error -= 180
                 while error < -90:
                     error += 180
-                turn = error*0.1
+                turn = error*0.05
             if self.PID_DEFENCE_DRIVE:
                 power *= 10
                 turn *= 10

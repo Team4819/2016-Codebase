@@ -7,4 +7,4 @@ class RockAuto(yeti.Module):
         pass
 
     def get_led_code(self):
-        return True, False, False, False
+        return False, False, False, False

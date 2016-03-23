@@ -1,3 +1,0 @@
-[submodule "vision/kinect_server/http-launch"]
-	path = vision/kinect_server/http-launch
-	url = https://github.com/sdroege/http-launch.git
