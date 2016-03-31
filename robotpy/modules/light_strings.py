@@ -1,7 +1,10 @@
 import yeti
 import wpilib
 import asyncio
+import math
 import time
+import threading
+
 
 class LightStrings(yeti.Module):
 
@@ -10,85 +13,155 @@ class LightStrings(yeti.Module):
     def module_init(self):
         self.spi_out = wpilib.SPI(1)
         self.spi_out.setMSBFirst()
+        self.alliance = 5
+        self.ds = wpilib.DriverStation.getInstance()
+        self.boot_sequence_thread = threading.Thread(target=self.boot_sequence)
+        self.climber = self.engine.get_module("basic_climber")
+
         self.teleop_stage = 0
-        self.LED_values = [(0, 0, 0) for _ in range(self.LED_COUNT)]
-        self.autonomous = self.engine.get_module("autonomous")
-        self.auto_code = False, False, False, False
+
         self.regions = {
            "all": (0, self.LED_COUNT),
            "bumper": (59, 97),
-           "bumper1": (59, 69),
-           "bumper2": (70, 79),
-           "bumper3": (80, 89),
-           "bumper4": (90, 97),
            "left_rail": (97, self.LED_COUNT),
            "right_rail": (0, 59)
         }
-        #self.set_region("all", 0, 0, 255)
-        self.disabled_init()
+        self.buffers = {
+            "init": [(0, 0, 0) for _ in range(self.LED_COUNT)],
+            "auto": [(0, 0, 0) for _ in range(self.LED_COUNT)],
+            "teleop": [(0, 0, 0) for _ in range(self.LED_COUNT)],
+            "disabled": [(0, 0, 0) for _ in range(self.LED_COUNT)]
+        }
+        self.active_buffer = "init"
+        self.robot_started = False
+
+        # Prepare buffers
+
+        # disabled buffer: all alliance
+        self.set_region("all", "disabled", 0, 0, 0)
+
+        # auto buffer: all yellow, alliance bumper
+        self.set_region("all", "auto", 255, 255, 0)
+
+        # teleop buffer: all green, alliance bumper
+        self.set_region("all", "teleop", 0, 255, 0)
+
+        self.boot_sequence_thread.start()
+
+    def get_alliance_color(self):
+        if self.alliance is wpilib.DriverStation.Alliance.Blue:
+            return 0, 0, 255
+        elif self.alliance is wpilib.DriverStation.Alliance.Red:
+            return 255, 0, 0
+        else:
+            return 0, 0, 0
+
+    def set_alliance_color(self, r, g, b):
+        self.set_region("left_rail", "disabled", r, g, b)
+        self.set_region("right_rail", "disabled", r, g, b)
+        #self.set_region("bumper", "teleop", r, g, b)
+
+    def boot_sequence(self):
+        # Do init cycle
+        self.active_buffer = "init"
+        pulse_width = 5
+        pulse_center = -pulse_width / 2
+        self.logger.info("Boot sequence started")
+        loops_completed = 0
+        while not self.robot_started or loops_completed < 2:
+            self.active_buffer = "init"
+            for i in range(self.LED_COUNT):
+                value = 1 - ((pulse_center - i) / pulse_width) ** 2
+
+                if value > 0:
+                    if loops_completed % 2 == 0:
+                        self.buffers["init"][i] = (0, 0, int(255 * value))
+                    else:
+                        self.buffers["init"][i] = (int(255 * value), 0, 0)
+                else:
+                    self.buffers["init"][i] = (0, 0, 0)
+
+            self.show()
+            time.sleep(0.02)
+            pulse_center += 16
+            if pulse_center > self.LED_COUNT + 20:
+                pulse_center = -20
+                loops_completed += 1
+        self.logger.info("Boot sequence ended after {} loops.".format(loops_completed))
+        self.active_buffer = "disabled"
+        self.show()
 
     async def main_loop(self):
+
         while True:
-            self.show()
-            await asyncio.sleep(0.5)
+            new_alliance = self.ds.getAlliance()
+            if new_alliance is not self.alliance:
+                self.alliance = new_alliance
+                self.set_alliance_color(*self.get_alliance_color())
+            await asyncio.sleep(0.1)
+
+    def set_debug_code(self, code, buffer=None):
+        if buffer is None:
+            buffer = self.active_buffer
+        self.logger.info("New debug code for buffer {} is {}".format(buffer, code))
+        light_data = []
+        for value in code:
+            light_data.append((255, 255, 255) if value else (0, 0, 0))
+            #light_data.append((0, 0, 255))
+        self.set_region_chain("bumper", buffer, light_data)
 
     def teleop_init(self):
         self.teleop_time = time.time()
         self.teleop_stage = 0
-        self.set_region("all", 0, 255, 0)
-        self.set_region("bumper", 0, 0, 255)
+        self.active_buffer = "teleop"
+        self.show()
 
     def teleop_periodic(self):
         current_time = time.time()
-        if current_time > self.teleop_time + 90 and self.teleop_stage < 1:
+        if self.climber.is_activated():
+            if self.teleop_stage < 3:
+                self.set_region("all", "teleop", 0, 255, 255)
+                self.teleop_stage = 3
+        elif current_time < self.teleop_time + 90 and self.teleop_stage > 1:
+            self.teleop_stage = 0
+            self.set_region("all", "teleop", 0, 255, 0)
+        elif current_time > self.teleop_time + 90 and self.teleop_stage < 1:
             print("Last 45 seconds!")
             self.teleop_stage = 1
-            self.set_region("all", 255, 255, 0)
+            self.set_region("all", "teleop", 255, 255, 0)
         elif current_time > self.teleop_time + 120 and self.teleop_stage < 2:
             print("Last 15 seconds!")
             self.teleop_stage = 2
-            self.set_region("all", 255, 0, 0)
+            self.set_region("all", "teleop", 255, 0, 0)
 
     def autonomous_init(self):
-        self.set_region("all", 255, 255, 0)
-        self.set_region("bumper", 0, 0, 255)
+        self.active_buffer = "auto"
+        self.show()
 
     def disabled_init(self):
-        self.auto_code = False, False, False, False
-        self.set_region("all", 0, 0, 255)
-        self.disabled_periodic()
-
-    def disabled_periodic(self):
-        try:
-            auto_code = self.autonomous.get_led_code()
-        except ValueError:
-            return
-        if auto_code is not self.auto_code:
-            self.auto_code = auto_code
-            if auto_code[0]:
-                self.set_region("bumper1", 255, 255, 255)
-            else:
-                self.set_region("bumper1", 0, 0, 0)
-            if auto_code[1]:
-                self.set_region("bumper2", 255, 255, 255)
-            else:
-                self.set_region("bumper2", 0, 0, 0)
-            if auto_code[2]:
-                self.set_region("bumper3", 255, 255, 255)
-            else:
-                self.set_region("bumper3", 0, 0, 0)
-            if auto_code[3]:
-                self.set_region("bumper4", 255, 255, 255)
-            else:
-                self.set_region("bumper4", 0, 0, 0)
-
-    def set_region(self, region, r, g, b):
-        for i in range(*self.regions[region]):
-            self.LED_values[i] = (r, g, b)
+        self.robot_started = True
+        if self.active_buffer != "init":
+            self.active_buffer = "disabled"
         self.show()
+
+    def set_region(self, region, buffer, r, g, b):
+        for i in range(*self.regions[region]):
+            self.buffers[buffer][i] = (r, g, b)
+        if self.active_buffer == buffer:
+            self.show()
+
+    def set_region_chain(self, region, buffer, data):
+        data_len = len(data)
+        start, end = self.regions[region]
+        led_count = end-start
+        for i in range(start, end):
+            mapped_index = math.floor(((i-start)/led_count)*data_len)
+            self.buffers[buffer][i] = data[mapped_index]
+        if self.active_buffer == buffer:
+            self.show()
 
     def show(self):
         self.spi_out.write([0x00 for _ in range(4)])
-        for r, g, b in self.LED_values:
+        for r, g, b in self.buffers[self.active_buffer]:
             self.spi_out.write(bytes([255, b, g, r]))
         self.spi_out.write([0xff for _ in range(4)])

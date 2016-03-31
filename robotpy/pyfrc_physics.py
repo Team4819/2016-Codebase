@@ -41,6 +41,6 @@ class PhysicsEngine(object):
             lf_motor = 0
             rf_motor = 0
 
-        speed, rotation = drivetrains.four_motor_drivetrain(lr_motor, rr_motor, lf_motor, rf_motor)
+        speed, rotation = drivetrains.four_motor_drivetrain(-lr_motor, -rr_motor, -lf_motor, -rf_motor)
         self.physics_controller.drive(speed, rotation, tm_diff)
 

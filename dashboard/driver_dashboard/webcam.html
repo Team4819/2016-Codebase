@@ -5,40 +5,6 @@
     <title>Webcam</title>
 </head>
 <body>
-<embed type="application/x-vlc-plugin" pluginspage="http://www.videolan.org"
-       width="810"
-       autoplay="yes"
-       controls="false"
-       height="405"
-
-       id="vlc"
-/>
-<embed type="application/x-vlc-plugin" pluginspage="http://www.videolan.org"
-       width="512"
-       autoplay="yes"
-       controls="false"
-       height="424"
-
-       id="vlc2"
-/>
-<script>
-    var options = new Array(":network-caching=0");
-    var id = vlc.playlist.add("tcp://tegra-ubuntu.local:5805", "fancy name", options);
-    vlc.playlist.playItem(id);
-
-    var options = new Array(":network-caching=0");
-    var id = vlc2.playlist.add("tcp://tegra-ubuntu.local:5806", "fancy name", options);
-    vlc2.playlist.playItem(id);
-</script>
-
-<!--
-<video width="810" height="405" autoplay>
-        <source src="http://localhost:5805" preload="none">
-</video>
-<!--
-<video width="480" height="270" autoplay>
-        <source src="http://localhost:5806" preload="none">
-</video>
--->
+<img height="424" width="810" src="http://10.48.19.2:5805/?action=stream"/>
 </body>
 </html>

@@ -7,16 +7,15 @@ class DriveAuto(yeti.Module):
     def module_init(self):
         self.drivetrain = self.engine.get_module("advanced_drive")
         self.intake = self.engine.get_module("advanced_intake")
-
-    def get_led_code(self):
-        return False, True, True, False
+        self.debug.set_code((True, False, False), "disabled")
 
     @yeti.singleton
     async def autonomous_init(self):
         print("CHARGE!")
-        self.intake.set_setpoint(0)
-        await asyncio.sleep(4)
-        self.drivetrain.set_drive(0, -0.65, True)
-        await asyncio.sleep(3)
-        self.drivetrain.set_drive(0, 0, False)
+        self.drivetrain.reset_encoders()
+        self.debug.set_code((True, False), "auto")
+        await self.intake.wait_for_setpoint(0)
+        self.debug.set_code((False, True), "auto")
+        await self.drivetrain.drive_straight_to(10, -0.65)
+        self.debug.set_code((True, True), "auto")
 

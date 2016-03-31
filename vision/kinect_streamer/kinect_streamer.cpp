@@ -112,6 +112,7 @@ int main (int argc, char *argv[])
 
   GstElement *rgb_pipeline, *rgb_conv, *rgb_scale, *rgb_rate, *rgb_enc, *rgb_mux, *rgb_serversink;
   GstElement *depth_pipeline, *depth_conv, *depth_scale, *depth_rate, *depth_enc, *depth_mux, *depth_serversink;
+  GstElement *depth_tee, *depth_queue, *depth_raw_queue *depth_raw_scale, *depth_raw_rate, *depth_raw_serversink;
 
   /* init GStreamer */
   gst_init (&argc, &argv);
@@ -124,7 +125,7 @@ int main (int argc, char *argv[])
   rgb_rate = gst_element_factory_make ("videorate", "rgb rater");
   rgb_scale = gst_element_factory_make ("videoscale", "rgb scaler");
 
-  rgb_enc = gst_element_factory_make ("jpegenc", "rgb jpeg enc");
+  rgb_enc = gst_element_factory_make ("jpegenc", "rgb h264 enc");
   rgb_mux = gst_element_factory_make ("multipartmux", "rgb muxer");
   rgb_serversink = gst_element_factory_make ("tcpserversink", "rgb tcp server");
 
@@ -179,16 +180,19 @@ int main (int argc, char *argv[])
 		NULL);
 
   //g_object_set (G_OBJECT (rgb_enc),
-        //"tune", "Zero latency",
-        //"target-bitrate", 256000,
-        //"end-usage", 1,
-        //"deadline", 1,
-        //"buffer-size", 100,
-        //"speed_preset", 1,
-        //"bitrate"
-        //"buffer-initial-size", 100,
-        //"lag-in-frames", 0,
-        //NULL);
+      //"low-latency", true,
+      //"framerate", 10,
+      //"bitrate", 300000,
+      //"tune", "Zero latency",
+      //"target-bitrate", 256000,
+      //"end-usage", 1,
+      //"deadline", 1,
+      //"buffer-size", 100,
+      //"speed_preset", 1,
+      //"bitrate"
+      //"buffer-initial-size", 100,
+      //"lag-in-frames", 0,
+   //   NULL);
 
   //g_object_set (G_OBJECT (rgb_mux),
   //      "streamable", true,
@@ -211,13 +215,21 @@ int main (int argc, char *argv[])
 
   depth_pipeline = gst_pipeline_new ("depth_pipeline");
   depth_appsrc = gst_element_factory_make ("appsrc", "kinect depth appsrc");
-  depth_conv = gst_element_factory_make ("videoconvert", "nvidia converter");
-  depth_rate = gst_element_factory_make ("videorate", "rate1");
-  depth_scale = gst_element_factory_make ("videoscale", "scale1");
+  depth_conv = gst_element_factory_make ("videoconvert", "depth converter");
+  depth_rate = gst_element_factory_make ("videorate", "depth rate");
+  depth_scale = gst_element_factory_make ("videoscale", "depth scale");
 
+  depth_tee = gst_element_factory_make ("tee", "depth tee");
+
+  depth_queue = gst_element_factory_make ("queue", "depth jpeg queue");
   depth_enc = gst_element_factory_make ("jpegenc", "depth jpeg enc");
   depth_mux = gst_element_factory_make ("multipartmux", "depth muxer");
   depth_serversink = gst_element_factory_make ("tcpserversink", "depth tcp server");
+
+  depth_raw_queue = gst_element_factory_make ("queue", "depth raw queue");
+  depth_raw_rate = gst_element_factory_make ("videorate", "depth raw rate");
+  depth_raw_scale = gst_element_factory_make ("videoscale", "depth raw scale");
+  depth_raw_serversink = gst_element_factory_make ("tcpserversink", "depth raw tcp server");
 
   /* setup */
   g_object_set (G_OBJECT (depth_appsrc), "caps",
@@ -227,15 +239,26 @@ int main (int argc, char *argv[])
   				     "height", G_TYPE_INT, 424,
   				     "framerate", GST_TYPE_FRACTION, 0, 1,
   				     NULL), NULL);
-  gst_bin_add_many (GST_BIN (depth_pipeline), depth_appsrc, depth_rate, depth_scale, depth_conv, depth_enc, depth_mux, depth_serversink, NULL);
-  gst_element_link_many (depth_appsrc, depth_rate, depth_scale, depth_conv, NULL);
-  GstCaps *depth_caps = gst_caps_new_simple ("video/x-raw",
+  gst_bin_add_many (GST_BIN (depth_pipeline), depth_appsrc, depth_rate, depth_scale, depth_conv, depth_enc, depth_mux, depth_serversink, depth_raw_rate, depth_raw_scale, depth_raw_serversink, NULL);
+  gst_element_link_many (depth_appsrc, depth_rate, depth_scale, depth_conv, depth_tee, NULL);
+
+  // Encoded tcp socket
+  GstCaps *depth_encoded_caps = gst_caps_new_simple ("video/x-raw",
   				     "width", G_TYPE_INT, 256,
   				     "height", G_TYPE_INT, 212,
-  				     "framerate", GST_TYPE_FRACTION, 10, 1,
+  				     "framerate", GST_TYPE_FRACTION, 15, 1,
   				     NULL);
-  gst_element_link_filtered (depth_conv, depth_enc, depth_caps);
+  gst_element_link_filtered (depth_tee, depth_enc, depth_encoded_caps);
   gst_element_link_many (depth_enc, depth_mux, depth_serversink, NULL);
+
+  // Raw tcp socket
+  GstCaps *depth_raw_caps = gst_caps_new_simple ("video/x-raw",
+  			     "width", G_TYPE_INT, 128,
+  			     "height", G_TYPE_INT, 106,
+  			     "framerate", GST_TYPE_FRACTION, 10, 1,
+  			     NULL);
+  gst_element_link_many (depth_tee, depth_raw_rate, depth_raw_scale, NULL);
+  gst_element_link_filtered (depth_raw_scale, depth_raw_serversink, depth_raw_caps);
 
   /* setup appsrc */
   g_object_set (G_OBJECT (depth_appsrc),
@@ -247,25 +270,18 @@ int main (int argc, char *argv[])
 		//"max-latency", 5,
 		//"do-timestamp", true,
 		NULL);
- // g_object_set (G_OBJECT (depth_enc),
-        //"target-bitrate", 256000,
-        //"//end-usage", 1,
-//        NULL);
-
-//  g_object_set (G_OBJECT (depth_mux),
-//        "streamable", true,
-//        NULL);
 
   g_object_set (G_OBJECT (depth_serversink),
         "sync", false,
-        //"async", false,
-        //"max-lateness", 50000000,
         "sync-method", 2,
-        //"buffers-max", 10,
-        //"units-max", 10,
-        //"recover-policy", 1,
         "host", "10.48.19.6",
         "port", 5806,
+        NULL);
+
+  g_object_set (G_OBJECT (depth_raw_serversink),
+        "sync", false,
+        "host", "10.48.19.6",
+        "port", 5807,
         NULL);
 
   std::thread t1(libfreenect_thread);

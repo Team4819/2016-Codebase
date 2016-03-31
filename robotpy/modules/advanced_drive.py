@@ -1,6 +1,7 @@
 import wpilib
 import yeti
 import asyncio
+import math
 from robotpy_ext.common_drivers import navx
 
 
@@ -18,12 +19,16 @@ class AdvancedDrive(yeti.Module):
         self.motors = {
             "left_drive_0": wpilib.CANTalon(1),
             "left_drive_1": wpilib.CANTalon(2),
-            "right_drive_0": wpilib.CANTalon(3),
-            "right_drive_1": wpilib.CANTalon(4)
+            "right_drive_0": wpilib.CANTalon(4),
+            "right_drive_1": wpilib.CANTalon(3)
         }
         self.motors["left_drive_0"].setFeedbackDevice(wpilib.CANTalon.FeedbackDevice.QuadEncoder)
+        #self.motors["left_drive_0"].configEncoderCodesPerRev(1440)
         self.motors["right_drive_0"].setFeedbackDevice(wpilib.CANTalon.FeedbackDevice.QuadEncoder)
-        self.navx = navx.AHRS.create_i2c()
+        #self.motors["right_drive_0"].configEncoderCodesPerRev(1440)
+        for motor in self.motors:
+            self.motors[motor].enableBrakeMode(True)
+        self.navx = navx.AHRS.create_spi()
         self.angle_setpoint = 0
         self.input_x = 0
         self.input_y = 0
@@ -32,15 +37,66 @@ class AdvancedDrive(yeti.Module):
 
     async def main_loop(self):
         while True:
+            left_enc, right_enc = self.get_enc_pos()
+            wpilib.SmartDashboard.putNumber("left_encoder", left_enc)
+            wpilib.SmartDashboard.putNumber("right_encoder", right_enc)
+            wpilib.SmartDashboard.putBoolean("navx connected", self.navx.isConnected())
+            wpilib.SmartDashboard.putBoolean("navx calibrating", self.navx.isCalibrating())
             wpilib.SmartDashboard.putNumber("navx incline", self.get_incline())
             wpilib.SmartDashboard.putNumber("navx angle", self.navx.getAngle())
             wpilib.SmartDashboard.putNumber("navx setpoint", self.angle_setpoint)
             await asyncio.sleep(0.2)
 
+    def get_enc_pos(self):
+        return self.motors["left_drive_0"].getEncPosition()/(700*0.5*math.pi), -self.motors["right_drive_0"].getEncPosition()/(700*0.5*math.pi)
+
+    def reset_encoders(self):
+        self.motors["left_drive_0"].setEncPosition(0)
+        self.motors["right_drive_0"].setEncPosition(0)
+
+    def zero_gyro(self):
+        self.navx.zeroYaw()
+
+    async def drive_straight_to(self, distance, power, timeout=5):
+        init_distance = self.get_enc_pos()[0]
+        error = distance - init_distance
+        direction = abs(error)/error
+        self.breach_mode = True
+        self.input_y = power
+        counter = 0
+        while self.gameclock.is_autonomous() and direction*(distance - self.get_enc_pos()[0]) > 0 and counter <= timeout:
+            wpilib.SmartDashboard.putNumber("value", direction*(distance - self.get_enc_pos()[0]))
+            await asyncio.sleep(0.05)
+            counter += 0.05
+        self.breach_mode = False
+        self.input_y = 0
+        if counter > timeout:
+            self.logger.warn("Timeout reached before distance was reached! Distance is {}, while encoder pos is {}!".format(distance, self.get_enc_pos()[0]))
+            return False
+        else:
+            return True
+
+    async def turn_to(self, setpoint, range=0.2, timeout=5):
+        self.angle_setpoint = setpoint
+        self.breach_mode = True
+        counter = 0
+        while self.gameclock.is_autonomous() and abs(self.navx.getAngle() - self.angle_setpoint) > range and counter <= timeout:
+            await asyncio.sleep(0.05)
+            counter += 0.05
+        self.breach_mode = False
+        if counter > timeout:
+            self.logger.warn(
+                "Timeout reached before angle was reached! Setpoint is {}, while angle is {}!".format(self.angle_setpoint, self.navx.getAngle())
+            )
+            return False
+        else:
+            return True
+
     def autonomous_init(self):
-        self.angle_setpoint = self.navx.getAngle()
+        self.zero_gyro()
 
     def enabled_init(self):
+        self.angle_setpoint = 0
         for motor in self.motors:
             self.motors[motor].enableControl()
 
@@ -55,7 +111,7 @@ class AdvancedDrive(yeti.Module):
         self.input_x = turn
         self.breach_mode = self.joystick.getTrigger()
         if self.joystick.getRawButton(2):
-            self.angle_setpoint = self.navx.getAngle()
+            self.zero_gyro()
 
     def set_drive(self, x=0, y=0, breach=False):
         self.input_x = x
@@ -63,14 +119,7 @@ class AdvancedDrive(yeti.Module):
         self.breach_mode = breach
 
     def get_incline(self):
-        return self.navx.getRoll()
-
-    def zero_drive_enc(self):
-        self.motors["left_drive_0"].setEncPosition(0)
-        self.motors["right_drive_0"].setEncPosition(0)
-
-    def get_drive_enc(self):
-        return self.motors["right_drive_0"].get()
+        return self.navx.getPitch()
 
     def enabled_periodic(self):
         # Get the joystick values and drive the motors.
@@ -96,7 +145,7 @@ class AdvancedDrive(yeti.Module):
                     error -= 180
                 while error < -90:
                     error += 180
-                turn = error*0.05
+                turn = max(-0.5, min(error*0.025 + self.navx.getRate() * 0.1, 0.5))
             if self.PID_DEFENCE_DRIVE:
                 power *= 10
                 turn *= 10

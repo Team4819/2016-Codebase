@@ -1,11 +1,4 @@
 #!/usr/bin/env python
-'''
-    This is an example server application, using the aiohttp handlers,
-    that you can use to connect your HTML/Javascript dashboard code to
-    your robot via NetworkTables.
-    Run this application with python, then you can open your browser to
-    http://localhost:8888/ to view the index.html page.
-'''
 
 from os.path import abspath, dirname, exists, join
 from optparse import OptionParser
@@ -23,7 +16,6 @@ log_datefmt = "%H:%M:%S"
 log_format = "%(asctime)s:%(msecs)03d %(levelname)-8s: %(name)-20s: %(message)s"
 
 def init_networktables(ipaddr):
-
     logger.info("Connecting to networktables at %s" % ipaddr)
     NetworkTable.setIPAddress(ipaddr)
     NetworkTable.setClientMode()

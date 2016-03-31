@@ -18,5 +18,7 @@ include_directories( ${GSTREAMER_1_0_INCLUDE_DIRS} )
 include_directories( ${GSTREAMER_1_0_APP_INCLUDE_DIRS} )
 
 add_executable( kinect_streamer kinect_streamer.cpp)
+add_executable( kinect_reset kinect_reset.cpp)
 target_link_libraries(kinect_streamer freenect2 ${GSTREAMER_1_0_LIBRARIES} ${GSTREAMER_1_0_APP_LIBRARIES})
+target_link_libraries(kinect_reset freenect2)
 set_target_properties( kinect_streamer PROPERTIES LINKER_LANGUAGE CXX )

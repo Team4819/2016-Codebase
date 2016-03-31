@@ -5,6 +5,8 @@ import math
 class MyRobotDynamics(dynamics.DynamicsEngine):
 
     DEBUG_VERBOSITY = 0
+    SINK_TO_SIMPLESTREAMER = True
+    SINK_IN_SIMULATION = True
 
     def build_loads(self):
         # Init drivetrain components (the assembly does this for us)
@@ -37,6 +39,6 @@ class MyRobotDynamics(dynamics.DynamicsEngine):
         self.controllers['left_drive_0'] = dynamics.CANTalonSpeedController(left_front_motor, 1)
         self.controllers['left_drive_0'].add_encoder(self.sensors['left_encoder'])
         self.controllers['left_drive_1'] = dynamics.CANTalonSpeedController(left_rear_motor, 2)
-        self.controllers['right_drive_0'] = dynamics.CANTalonSpeedController(right_front_motor, 3)
+        self.controllers['right_drive_0'] = dynamics.CANTalonSpeedController(right_front_motor, 4)
         self.controllers['right_drive_0'].add_encoder(self.sensors['right_encoder'])
-        self.controllers['right_drive_1'] = dynamics.CANTalonSpeedController(right_front_motor, 4)
+        self.controllers['right_drive_1'] = dynamics.CANTalonSpeedController(right_front_motor, 3)

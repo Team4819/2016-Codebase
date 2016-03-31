@@ -1,1 +1,2 @@
-/home/ubuntu/start_server_root.sh
+echo -1 > /sys/module/usbcore/parameters/autosuspend
+# /home/ubuntu/start_server_root.sh

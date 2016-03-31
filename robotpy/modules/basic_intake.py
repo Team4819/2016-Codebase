@@ -4,11 +4,16 @@ import yeti
 
 class BasicIntake(yeti.Module):
 
+    USE_CAN = False
+
     def module_init(self):
         self.intake_solenoid_1 = wpilib.DoubleSolenoid(0, 1)
         self.intake_solenoid_2 = wpilib.DoubleSolenoid(2, 3)
-        self.intake_motor = wpilib.CANTalon(6)
-        self.intake_motor.enableControl()
+        if self.USE_CAN:
+            self.intake_motor = wpilib.CANTalon(6)
+            self.intake_motor.enableControl()
+        else:
+            self.intake_motor = wpilib.Talon(7)
         self.joystick = wpilib.Joystick(1)
 
     def teleop_periodic(self):

@@ -1,22 +1,28 @@
 # This section defines the individual modules and module sets to run on startup.
 enabled:
+    - light_strings
     - drivetrain
     - intake
     - auto_picker
-    - light_strings
+    - basic_climber
+    - debug
     #- dynamics
 
 # This is a list of relative directories to search for modules
 module_dirs:
     - modules
 
+embedded:
+    - debug
+
 # Defines module sets
 module_sets:
     autonomous:
-      #- cheval_de_frise_auto
-      #- portcullis_auto
       - drive_auto
       - dead_auto
+      - cheval_de_frise_auto
+      - portcullis_auto
+      - ball_auto
     drivetrain:
       #- dynamic_drive
       - advanced_drive
