@@ -15,7 +15,6 @@ class LightStrings(yeti.Module):
         self.spi_out.setMSBFirst()
         self.alliance = 5
         self.ds = wpilib.DriverStation.getInstance()
-        self.boot_sequence_thread = threading.Thread(target=self.boot_sequence)
         self.climber = self.engine.get_module("basic_climber")
 
         self.teleop_stage = 0
@@ -34,6 +33,7 @@ class LightStrings(yeti.Module):
         }
         self.active_buffer = "init"
         self.robot_started = False
+        self.browned_out = False
 
         # Prepare buffers
 
@@ -45,8 +45,6 @@ class LightStrings(yeti.Module):
 
         # teleop buffer: all green, alliance bumper
         self.set_region("all", "teleop", 0, 255, 0)
-
-        self.boot_sequence_thread.start()
 
     def get_alliance_color(self):
         if self.alliance is wpilib.DriverStation.Alliance.Blue:
@@ -61,44 +59,36 @@ class LightStrings(yeti.Module):
         self.set_region("right_rail", "disabled", r, g, b)
         #self.set_region("bumper", "teleop", r, g, b)
 
-    def boot_sequence(self):
+    async def main_loop(self):
         # Do init cycle
         self.active_buffer = "init"
         pulse_width = 5
         pulse_center = -pulse_width / 2
-        self.logger.info("Boot sequence started")
-        loops_completed = 0
-        while not self.robot_started or loops_completed < 2:
+        while (pulse_center - self.LED_COUNT/2) < self.LED_COUNT + pulse_width/2:
             self.active_buffer = "init"
             for i in range(self.LED_COUNT):
-                value = 1 - ((pulse_center - i) / pulse_width) ** 2
-
-                if value > 0:
-                    if loops_completed % 2 == 0:
-                        self.buffers["init"][i] = (0, 0, int(255 * value))
-                    else:
-                        self.buffers["init"][i] = (int(255 * value), 0, 0)
+                blue_value = 1 - ((pulse_center - i) / pulse_width)**2
+                red_value = 1 - (((pulse_center - self.LED_COUNT/2) - i) / pulse_width)**2
+                if blue_value > 0:
+                    self.buffers["init"][i] = (0, 0, int(255 * blue_value))
+                elif red_value > 0:
+                    self.buffers["init"][i] = (int(255 * red_value), 0, 0)
                 else:
                     self.buffers["init"][i] = (0, 0, 0)
-
             self.show()
-            time.sleep(0.02)
-            pulse_center += 16
-            if pulse_center > self.LED_COUNT + 20:
-                pulse_center = -20
-                loops_completed += 1
-        self.logger.info("Boot sequence ended after {} loops.".format(loops_completed))
+            await asyncio.sleep(0.03)
+            pulse_center += 4
         self.active_buffer = "disabled"
         self.show()
-
-    async def main_loop(self):
 
         while True:
             new_alliance = self.ds.getAlliance()
             if new_alliance is not self.alliance:
                 self.alliance = new_alliance
                 self.set_alliance_color(*self.get_alliance_color())
-            await asyncio.sleep(0.1)
+            if self.ds.isBrownedOut():
+                self.browned_out = True
+            await asyncio.sleep(1)
 
     def set_debug_code(self, code, buffer=None):
         if buffer is None:
@@ -112,27 +102,34 @@ class LightStrings(yeti.Module):
 
     def teleop_init(self):
         self.teleop_time = time.time()
-        self.teleop_stage = 0
         self.active_buffer = "teleop"
         self.show()
 
     def teleop_periodic(self):
         current_time = time.time()
-        if self.climber.is_activated():
+        climber_active, lock_active = self.climber.is_activated()
+        if climber_active and lock_active:
+            if self.teleop_stage < 4:
+                self.set_region("all", "teleop", *self.get_alliance_color())
+                self.teleop_stage = 4
+        elif climber_active:
             if self.teleop_stage < 3:
-                self.set_region("all", "teleop", 0, 255, 255)
+                self.set_region("all", "teleop", 255, 180, 0)
                 self.teleop_stage = 3
-        elif current_time < self.teleop_time + 90 and self.teleop_stage > 1:
-            self.teleop_stage = 0
-            self.set_region("all", "teleop", 0, 255, 0)
-        elif current_time > self.teleop_time + 90 and self.teleop_stage < 1:
-            print("Last 45 seconds!")
-            self.teleop_stage = 1
-            self.set_region("all", "teleop", 255, 255, 0)
-        elif current_time > self.teleop_time + 120 and self.teleop_stage < 2:
-            print("Last 15 seconds!")
-            self.teleop_stage = 2
-            self.set_region("all", "teleop", 255, 0, 0)
+        elif current_time > self.teleop_time + 120:
+            if self.teleop_stage < 2:
+                print("Last 15 seconds!")
+                self.teleop_stage = 2
+                self.set_region("all", "teleop", 255, 0, 0)
+        elif current_time > self.teleop_time + 90:
+            if self.teleop_stage < 1:
+                print("Last 45 seconds!")
+                self.teleop_stage = 1
+                self.set_region("all", "teleop", 255, 255, 0)
+        elif current_time < self.teleop_time + 90:
+            if self.teleop_stage != 0:
+                self.teleop_stage = 0
+                self.set_region("all", "teleop", 0, 255, 0)
 
     def autonomous_init(self):
         self.active_buffer = "auto"
@@ -162,6 +159,10 @@ class LightStrings(yeti.Module):
 
     def show(self):
         self.spi_out.write([0x00 for _ in range(4)])
-        for r, g, b in self.buffers[self.active_buffer]:
-            self.spi_out.write(bytes([255, b, g, r]))
+        if not self.browned_out:
+            for r, g, b in self.buffers[self.active_buffer]:
+                self.spi_out.write(bytes([255, b, g, r]))
+        else:
+            for _ in range(self.LED_COUNT):
+                self.spi_out.write(bytes([255, 0, 0, 0]))
         self.spi_out.write([0xff for _ in range(4)])

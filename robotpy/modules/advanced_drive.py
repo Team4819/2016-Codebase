@@ -76,7 +76,7 @@ class AdvancedDrive(yeti.Module):
         else:
             return True
 
-    async def turn_to(self, setpoint, range=0.2, timeout=5):
+    async def turn_to(self, setpoint, range=3, timeout=5):
         self.angle_setpoint = setpoint
         self.breach_mode = True
         counter = 0

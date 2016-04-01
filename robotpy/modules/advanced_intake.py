@@ -69,7 +69,10 @@ class AdvancedIntake(yeti.Module):
             velocity = (input - last_input)/0.05
             if abs(last_value) < 1:
                 velocity = 0
-            value_out = error*6 + velocity*0.7
+            value_out = error*8 + velocity*1.75
+
+            if value_out*error < 0:
+                value_out = 0
 
             val_1 = value_out
             if self.DOUBLE_SOLENOID:
@@ -90,7 +93,7 @@ class AdvancedIntake(yeti.Module):
             last_value = value_out
             await asyncio.sleep(0.01)
 
-    async def wait_for_setpoint(self, setpoint, range=0.2, timeout=3):
+    async def wait_for_setpoint(self, setpoint, range=0.2, timeout=2):
         self.set_setpoint(setpoint)
         counter = 0
         while abs(self.get_input() - self.setpoint) > range and self.gameclock.is_enabled() and counter <= timeout:

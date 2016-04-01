@@ -8,22 +8,22 @@ class BallAuto(yeti.Module):
         self.drivetrain = self.engine.get_module("advanced_drive")
         self.intake = self.engine.get_module("advanced_intake")
         self.debug.set_code((True, False, True), "disabled")
+        self.debug.set_auto_steps(6)
 
     @yeti.singleton
     async def autonomous_init(self):
         print("CHARGE!")
         self.drivetrain.reset_encoders()
-        self.set_step(0)
+        self.debug.set_auto_progress(0)
         await self.intake.wait_for_setpoint(0)
-        self.set_step(1)
-        await self.drivetrain.drive_straight_to(10, -0.65)
-        self.set_step(2)
-        await self.drivetrain.turn_to(60)
-        self.set_step(3)
+        self.debug.set_auto_progress(1)
+        await self.drivetrain.drive_straight_to(15, -0.65)
+        self.debug.set_auto_progress(2)
+        await self.drivetrain.turn_to(62.5)
+        self.debug.set_auto_progress(3)
+        #return
         self.drivetrain.reset_encoders()
-        await self.drivetrain.drive_straight_to(7, -0.65)
-        self.set_step(4)
+        await self.drivetrain.drive_straight_to(8, -0.65)
+        self.debug.set_auto_progress(4)
         await self.intake.run_intake_for(1, 10)
-
-    def set_step(self, step_num):
-        self.debug.set_code([i == step_num for i in range(5)], "auto")
+        self.debug.set_auto_progress(5)
