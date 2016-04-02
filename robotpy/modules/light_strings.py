@@ -109,20 +109,20 @@ class LightStrings(yeti.Module):
         current_time = time.time()
         climber_active, lock_active = self.climber.is_activated()
         if climber_active and lock_active:
-            if self.teleop_stage < 4:
+            if self.teleop_stage != 4:
                 self.set_region("all", "teleop", *self.get_alliance_color())
                 self.teleop_stage = 4
         elif climber_active:
-            if self.teleop_stage < 3:
-                self.set_region("all", "teleop", 255, 180, 0)
+            if self.teleop_stage != 3:
+                self.set_region("all", "teleop", 255, 20, 0)
                 self.teleop_stage = 3
         elif current_time > self.teleop_time + 120:
-            if self.teleop_stage < 2:
+            if self.teleop_stage != 2:
                 print("Last 15 seconds!")
                 self.teleop_stage = 2
                 self.set_region("all", "teleop", 255, 0, 0)
         elif current_time > self.teleop_time + 90:
-            if self.teleop_stage < 1:
+            if self.teleop_stage != 1:
                 print("Last 45 seconds!")
                 self.teleop_stage = 1
                 self.set_region("all", "teleop", 255, 255, 0)

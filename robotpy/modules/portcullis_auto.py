@@ -15,7 +15,7 @@ class PortcullisAuto(yeti.Module):
         print("CHARGE!")
         # Drive forward and lower intake
         self.debug.set_auto_progress(0)
-        self.intake.set_setpoint(-1, range=0.5)
+        self.intake.set_setpoint(-1)
         self.drivetrain.set_drive(0, -0.25, True)
         while self.drivetrain.get_incline() < 5 and self.gameclock.is_autonomous():
             await asyncio.sleep(0.05)
@@ -28,11 +28,12 @@ class PortcullisAuto(yeti.Module):
         # Drive slowly to portcullis
         self.debug.set_auto_progress(2)
         self.drivetrain.reset_encoders()
-        await self.drivetrain.drive_straight_to(2, -0.25)
+        await asyncio.sleep(0.2)
+        await self.drivetrain.drive_straight_to(0.9, -0.25)
 
         # Raise intake
         self.debug.set_auto_progress(3)
-        await self.intake.wait_for_setpoint(1, range=0.5)
+        await self.intake.wait_for_setpoint(0.2)
 
         # Drive through
         self.debug.set_auto_progress(4)

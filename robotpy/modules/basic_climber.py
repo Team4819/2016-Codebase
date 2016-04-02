@@ -44,7 +44,7 @@ class BasicClimber(yeti.Module):
         if self.lifter_activated:
             if self.unreel_for > 0:
                 self.unreel_for -= 0.05
-                lift_out = 0
+                lift_out = 0.3
             elif self.joystick.getRawButton(5):
                 lift_out = 0.5
             elif self.joystick.getRawButton(6):

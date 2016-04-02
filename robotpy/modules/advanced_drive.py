@@ -77,10 +77,18 @@ class AdvancedDrive(yeti.Module):
             return True
 
     async def turn_to(self, setpoint, range=3, timeout=5):
+        self.input_y = 0
         self.angle_setpoint = setpoint
         self.breach_mode = True
         counter = 0
-        while self.gameclock.is_autonomous() and abs(self.navx.getAngle() - self.angle_setpoint) > range and counter <= timeout:
+        while self.gameclock.is_autonomous() and counter <= timeout:
+            error = (self.navx.getAngle() - self.angle_setpoint)
+            while error > 90:
+                error -= 180
+            while error < -90:
+                error += 180
+            if error < range:
+                break
             await asyncio.sleep(0.05)
             counter += 0.05
         self.breach_mode = False
