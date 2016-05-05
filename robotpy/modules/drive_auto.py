@@ -8,7 +8,7 @@ class DriveAuto(yeti.Module):
         self.drivetrain = self.engine.get_module("advanced_drive")
         self.intake = self.engine.get_module("advanced_intake")
         self.debug.set_code((True, False, False), "disabled")
-        self.debug.set_auto_steps(3)
+        self.debug.set_auto_steps(4)
 
     @yeti.singleton
     async def autonomous_init(self):
@@ -19,4 +19,7 @@ class DriveAuto(yeti.Module):
         self.debug.set_auto_progress(1)
         await self.drivetrain.drive_straight_to(10, -0.65)
         self.debug.set_auto_progress(2)
+        # Release ball
+        await self.intake.run_intake_for(1, 10)
+        self.debug.set_auto_progress(3)
 

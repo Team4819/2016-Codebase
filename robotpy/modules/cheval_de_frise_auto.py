@@ -1,5 +1,6 @@
 import yeti
 import asyncio
+import wpilib
 
 
 class ChevalDeFriseAuto(yeti.Module):
@@ -8,7 +9,7 @@ class ChevalDeFriseAuto(yeti.Module):
         self.drivetrain = self.engine.get_module("advanced_drive")
         self.intake = self.engine.get_module("advanced_intake")
         self.debug.set_code((False, True, False), "disabled")
-        self.debug.set_auto_steps(5)
+        self.debug.set_auto_steps(6)
 
     @yeti.singleton
     async def autonomous_init(self):
@@ -36,6 +37,10 @@ class ChevalDeFriseAuto(yeti.Module):
         self.drivetrain.reset_encoders()
         await self.drivetrain.drive_straight_to(7, -0.65)
 
-        # Stop
+        # Release ball if commanded
         self.debug.set_auto_progress(4)
+        await self.intake.run_intake_for(1, 10)
+
+        # Stop
+        self.debug.set_auto_progress(5)
         self.drivetrain.set_drive(0, 0, False)

@@ -39,6 +39,10 @@ class PortcullisAuto(yeti.Module):
         self.debug.set_auto_progress(4)
         await self.drivetrain.drive_straight_to(5, -0.65)
 
+        # Release ball if commanded
+        self.debug.set_auto_progress(4)
+        await self.intake.run_intake_for(1, 10)
+
         # Stop
         self.debug.set_auto_progress(5)
 

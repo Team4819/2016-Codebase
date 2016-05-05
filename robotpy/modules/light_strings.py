@@ -3,11 +3,13 @@ import wpilib
 import asyncio
 import math
 import time
+import random
 import threading
 
 
 class LightStrings(yeti.Module):
 
+    #LED_COUNT = 158
     LED_COUNT = 180
 
     def module_init(self):
@@ -27,6 +29,7 @@ class LightStrings(yeti.Module):
         }
         self.buffers = {
             "init": [(0, 0, 0) for _ in range(self.LED_COUNT)],
+            "demo": [(0, 0, 0) for _ in range(self.LED_COUNT)],
             "auto": [(0, 0, 0) for _ in range(self.LED_COUNT)],
             "teleop": [(0, 0, 0) for _ in range(self.LED_COUNT)],
             "disabled": [(0, 0, 0) for _ in range(self.LED_COUNT)]
@@ -78,9 +81,77 @@ class LightStrings(yeti.Module):
             self.show()
             await asyncio.sleep(0.03)
             pulse_center += 4
-        self.active_buffer = "disabled"
+        self.active_buffer = "demo"
         self.show()
 
+        colors = [(0, 0, 255), (255, 0, 0), (255, 255, 255), (0, 255, 0), (255, 255, 0)]
+        lights = []
+        last_time = time.time()
+        last_spawn_check = 0
+        total_energy = 600
+        usable_energy = total_energy
+        while True:
+            await asyncio.sleep(0.01)
+            current_time = time.time()
+            dt = min(current_time - last_time, 1)
+            if self.active_buffer != "demo":
+                usable_energy = total_energy
+                lights = []
+                continue
+            if current_time - last_spawn_check > 4:
+                last_spawn_check = current_time
+                velocity = random.uniform(7, 10) * random.choice((-1, 1))
+                mass = random.uniform(4, 5)
+                energy = velocity**2 * mass * 0.5
+                if energy < usable_energy:
+                    usable_energy -= energy
+                    lights.append({
+                        "color": random.choice(colors),
+                        "position": 79,
+                        "velocity": velocity,
+                        "mass": mass,
+                        "age": 0
+                    })
+            to_kill = []
+            for light in lights:
+                light["age"] += dt
+                if light["age"] > 40:
+                    to_kill.append(light)
+                light["position"] = (light["position"] + light["velocity"]*dt) % self.LED_COUNT
+            for light in to_kill:
+                usable_energy += 0.5*light["mass"]*(light["velocity"]**2)
+                lights.remove(light)
+            #for light in lights:
+            #    if light["position"] < light["mass"] and light["velocity"] < 0:
+            #        light["velocity"] *= -1
+            #    elif light["position"] > self.LED_COUNT - light["mass"] and light["velocity"] > 0:
+            #        light["velocity"] *= -1
+            for light in lights:
+                for colliding_light in lights:
+                    if colliding_light["velocity"] - light["velocity"] < 0 < \
+                                    colliding_light["position"] - light["position"] <= \
+                                    light["mass"]+colliding_light["mass"]:
+                        m1 = light["mass"]
+                        m2 = colliding_light["mass"]
+                        m3 = m1 + m2
+                        light["velocity"] = ((m1 - m2)/m3)*light["velocity"] + (2*m2/m3)*colliding_light["velocity"]
+                        colliding_light["velocity"] = (2*m1/m3)*light["velocity"] + ((m2 - m1)/m3)*colliding_light["velocity"]
+
+            for i in range(self.LED_COUNT):
+                r = 0
+                g = 0
+                b = 0
+                for light in lights:
+                    value = max(1 - ((light["position"] - i)%self.LED_COUNT / light["mass"])**2, 0)*abs(light["velocity"])/20
+                    r += light["color"][0]*value
+                    g += light["color"][1]*value
+                    b += light["color"][2]*value
+                self.buffers["demo"][i] = (min(int(r), 255), min(int(g), 255), min(int(b), 255))
+            self.show()
+            last_time = current_time
+
+    @yeti.autorun
+    async def alliance_check_loop(self):
         while True:
             new_alliance = self.ds.getAlliance()
             if new_alliance is not self.alliance:
@@ -138,7 +209,7 @@ class LightStrings(yeti.Module):
     def disabled_init(self):
         self.robot_started = True
         if self.active_buffer != "init":
-            self.active_buffer = "disabled"
+            self.active_buffer = "demo"
         self.show()
 
     def set_region(self, region, buffer, r, g, b):

@@ -23,6 +23,7 @@ class AdvancedIntake(yeti.Module):
         self.auto_override = False
         self.intake_potentiometer = wpilib.AnalogPotentiometer(0)
         self.setpoint = 0
+        self.at_setpoint = 0
         self.auto_intake_out = 0
         self.joystick = wpilib.Joystick(1)
 
@@ -73,6 +74,12 @@ class AdvancedIntake(yeti.Module):
 
             if value_out*error < 0:
                 value_out = 0
+
+            #if abs(value_out) < 1:
+            #    self.at_setpoint = self.setpoint
+
+            #if self.at_setpoint == self.setpoint:
+            #    value_out = 0
 
             val_1 = value_out
             if self.DOUBLE_SOLENOID:
